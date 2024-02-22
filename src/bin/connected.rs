@@ -11,14 +11,14 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 #[derive(clap::Parser)]
 struct Options {
-    #[clap(long, short('n'))]
+    #[clap(long, short('i'))]
     iterations: usize,
     #[clap(short, long)]
-    vertices_path: String,
+    nodes_path: String,
     #[clap(short, long)]
     edges_path: String,
-    #[clap(short, long)]
-    vertices: usize,
+    #[clap(short('N'), long)]
+    nodes: usize,
 
     #[clap(long, short)]
     shared: bool,
@@ -32,9 +32,9 @@ struct State {
 }
 
 impl State {
-    fn new(num_vertices: usize) -> Self {
+    fn new(num_nodes: usize) -> Self {
         Self {
-            component: (0..num_vertices as u64).collect(),
+            component: (0..num_nodes as u64).collect(),
             updated: false,
             iteration_count: 0,
         }
@@ -44,7 +44,7 @@ impl State {
 fn connected_components_join(config: EnvironmentConfig, opts: Options) -> eyre::Result<()> {
     let mut env = StreamEnvironment::new(config);
 
-    let vertices_source = CsvSource::<u64>::new(opts.vertices_path).has_headers(false);
+    let nodes_source = CsvSource::<u64>::new(opts.nodes_path).has_headers(false);
     let edges_source = CsvSource::<(u64, u64)>::new(opts.edges_path)
         .delimiter(b',')
         .has_headers(false);
@@ -55,12 +55,12 @@ fn connected_components_join(config: EnvironmentConfig, opts: Options) -> eyre::
         .flat_map(|(x, y)| vec![(x, y), (y, x)]);
 
     let (result, dropme) = env
-        .stream(vertices_source)
+        .stream(nodes_source)
         // put each node in its own component
         .map(|x| (x, x))
         .iterate(
             opts.iterations,
-            State::new(opts.vertices),
+            State::new(opts.nodes),
             move |s, state| {
                 s.join(edges, |(x, _component)| *x, |(x, _y)| *x)
                     .map(|(_, ((_x, component), (_, y)))| (y, component))
@@ -108,7 +108,7 @@ fn connected_components_join(config: EnvironmentConfig, opts: Options) -> eyre::
 
 fn connected_components_shared(config: EnvironmentConfig, opts: Options) -> eyre::Result<()> {
     let mut env = StreamEnvironment::new(config.clone());
-    let vertices_source = CsvSource::<u64>::new(opts.vertices_path).has_headers(false);
+    let nodes_source = CsvSource::<u64>::new(opts.nodes_path).has_headers(false);
 
     let edges_source = CsvSource::<(u64, u64)>::new(opts.edges_path)
         .delimiter(b',')
@@ -133,12 +133,12 @@ fn connected_components_shared(config: EnvironmentConfig, opts: Options) -> eyre
     
     let mut env = StreamEnvironment::new(config);
     let (result, dropme) = env
-        .stream(vertices_source)
+        .stream(nodes_source)
         // put each node in its own component
         .map(|x| (x, x))
         .iterate(
             opts.iterations,
-            State::new(opts.vertices),
+            State::new(opts.nodes),
             move |s, state| {
                 s.flat_map(move |(x, c)| {
                     edges[&x]
