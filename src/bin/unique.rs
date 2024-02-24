@@ -1,7 +1,7 @@
 use clap::Parser;
 use std::{collections::HashSet, ops::Rem, time::Instant};
 
-use noir_compute::{prelude::*, GroupHasherBuilder, Replication};
+use noir_compute::{group_by_hash, prelude::*, GroupHasherBuilder, Replication};
 
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
@@ -22,7 +22,7 @@ struct Options {
     lambda_inv: usize,
 
     #[clap(long, short)]
-    shared: bool,
+    version: String,
 }
 
 fn make_source(
@@ -52,9 +52,11 @@ fn main() -> Result<()> {
     // db::db_setup()?;
 
     let start = Instant::now();
-    match opt.shared {
-        true => unique_assoc(conf, opt)?,
-        false => unique(conf, opt)?,
+    match opt.version.as_str() {
+        "new" => unique_assoc(conf, opt)?,
+        "split" => unique_split(conf, opt)?,
+        "base" => unique(conf, opt)?,
+        _ => unimplemented!(),
         // false => unique_new(conf, lambda, opt.event_number, n)?,
     }
     eprintln!("time: {:?}", start.elapsed());
@@ -92,10 +94,47 @@ fn unique(config: EnvironmentConfig, opts: Options) -> eyre::Result<()> {
 
     let mut set = HashSet::<_, GroupHasherBuilder>::default();
     let k = source
-        .replication(Replication::One)
+        .repartition_by(Replication::Unlimited, |el| group_by_hash(el))
         .rich_flat_map(move |el| {
             if !set.contains(&el) {
                 set.insert(el.clone());
+                Some(el)
+            } else {
+                None
+            }
+        })
+        .inspect(inspect)
+        .collect_count();
+
+    let start = Instant::now();
+    env.execute_blocking();
+    let elapsed = start.elapsed();
+
+    println!("{:?}", k.get());
+    eprintln!("{elapsed:?}");
+    Ok(())
+}
+
+fn unique_split(config: EnvironmentConfig, opts: Options) -> eyre::Result<()> {
+    let mut env = StreamEnvironment::new(config);
+    let lambda = 1. / opts.lambda_inv as f32;
+    let source = make_source(lambda, &mut env, opts.event_number)?;
+
+    let mut local_set = HashSet::<_, GroupHasherBuilder>::default();
+    let mut global_set = HashSet::<_, GroupHasherBuilder>::default();
+    let k = source
+        .rich_flat_map(move |el| {
+            if !local_set.contains(&el) {
+                local_set.insert(el.clone());
+                Some(el)
+            } else {
+                None
+            }
+        })
+        .repartition_by(Replication::Unlimited, |el| group_by_hash(el))
+        .rich_flat_map(move |el| {
+            if !global_set.contains(&el) {
+                global_set.insert(el.clone());
                 Some(el)
             } else {
                 None

@@ -1,16 +1,2 @@
 /target
-results/2024-02-21T18:53:02+00:00-enrich-pool.json
-results/2024-02-21T20:41:42+00:00-pagerank.json
-results/2024-02-21T20:54:02+00:00-connected.json
-results/2024-02-22T10:41:00+00:00-enrich-async.json
-results/2024-02-22T14:12:58+00:00-enrich-memo.json
-results/2024-02-22T16:42:16+00:00-unique.json
-results/csv/2024-02-21T18:53:02+00:00-enrich-pool.json.csv
-results/csv/2024-02-21T20:41:42+00:00-pagerank.json.csv
-results/csv/2024-02-21T20:54:02+00:00-connected.json.csv
-results/plots/bar-2024-02-21T18:53:02+00:00-enrich-pool.json.pdf
-results/plots/bar-2024-02-21T20:41:42+00:00-pagerank.json.pdf
-results/plots/bar-2024-02-21T20:54:02+00:00-connected.json.pdf
-results/plots/line-2024-02-21T18:53:02+00:00-enrich-pool.json.pdf
-results/plots/line-2024-02-21T20:41:42+00:00-pagerank.json.pdf
-results/plots/line-2024-02-21T20:54:02+00:00-connected.json.pdf
+/results

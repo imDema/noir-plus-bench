@@ -51,7 +51,6 @@ fn connected_components_join(config: EnvironmentConfig, opts: Options) -> eyre::
 
     let edges = env
         .stream(edges_source)
-        // edges are undirected
         .flat_map(|(x, y)| vec![(x, y), (y, x)]);
 
     let (result, dropme) = env
@@ -62,7 +61,7 @@ fn connected_components_join(config: EnvironmentConfig, opts: Options) -> eyre::
             opts.iterations,
             State::new(opts.nodes),
             move |s, state| {
-                s.join(edges, |(x, _component)| *x, |(x, _y)| *x)
+                s.join(edges, |&(x, _component)| x, |&(x, _y)| x)
                     .map(|(_, ((_x, component), (_, y)))| (y, component))
                     .drop_key()
                     .group_by_min_element(|(x, _component)| *x, |(_x, component)| *component)
@@ -143,12 +142,11 @@ fn connected_components_shared(config: EnvironmentConfig, opts: Options) -> eyre
                 s.flat_map(move |(x, c)| {
                     edges[&x]
                         .iter()
-                        .cloned()
-                        .filter(|y| c < *y)
-                        .map(move |y| (y, c))
+                        .filter(|&&y| c < y)
+                        .map(move |&y| (y, c))
                         .collect::<Vec<_>>()
                 })
-                .group_by_min_element(|(x, _c)| *x, |(_x, c)| *c)
+                .group_by_min_element(|&(x, _c)| x, |&(_x, c)| c)
                 .drop_key()
                 .filter_map(move |(x, c)| {
                     let old_component = state.get().component[x as usize];

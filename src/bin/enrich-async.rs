@@ -38,11 +38,6 @@ fn main() -> Result<()> {
     let opt = Options::try_parse_from(args)?;
     tracing::info!("config: {opt:?}");
 
-    let name = if let Some(n) = &opt.memo_n {
-        format!("memo{n}")
-    } else {
-        "nomemo".into()
-    };
     let lambda = 1. / opt.lambda_inv as f32;
 
     // db::db_setup()?;

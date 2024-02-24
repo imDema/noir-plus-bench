@@ -6,7 +6,6 @@ use std::{io::BufReader, sync::Arc};
 use std::time::Instant;
 
 use noir_compute::prelude::*;
-use serde::{Deserialize, Serialize};
 
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
@@ -50,19 +49,13 @@ fn pagerank(config: EnvironmentConfig, opts: Options) -> eyre::Result<()> {
     let (dropme, result) = env
         .stream(pages_source)
         // distribute the ranks evenly
-        .map(move |x| (x, 1.0 / num_pages as f64, 1.0 / num_pages as f64))
+        .map(move |x| (x, 0.0, 1.0 / num_pages as f64))
         .iterate(
             opts.iterations,
             // state maintains whether a new iteration is needed
             false,
             move |s, _| {
-                let mut splits = s.split(2);
-                // keep ranks before being updated
-                let old_ranks = splits.pop().unwrap().map(|(x, _, rank)| (x, rank));
-
-                splits
-                    .pop()
-                    .unwrap()
+                s
                     .map(|(x, _, rank)| (x, rank))
                     .join(adj_list, |(x, _rank)| *x, |(x, _adj)| *x)
                     .flat_map(|(_, ((_x, rank), (_, adj)))| {
@@ -73,13 +66,14 @@ fn pagerank(config: EnvironmentConfig, opts: Options) -> eyre::Result<()> {
                     .drop_key()
                     .group_by_sum(|(y, _)| *y, |(_y, rank_to_distribute)| rank_to_distribute)
                     // apply dampening factor
-                    .map(move |(_y, rank)| rank * DAMPENING + (1.0 - DAMPENING) / num_pages as f64)
-                    .unkey()
-                    // generate the pair of old and new rank for each page
-                    .join(old_ranks, |(y, _)| *y, |(y, _)| *y)
-                    .map(|(_, ((_, new), (_, old)))| (old, new))
-                    .unkey()
-                    .map(|(y, (old, new))| (y, old, new))
+                    .rich_map({
+                        let mut prev = 0.0;
+                        move |(x, rank)| {
+                            let rank = rank * DAMPENING + (1.0 - DAMPENING) / num_pages as f64;
+                            (*x, replace(&mut prev, rank), rank)
+                        }
+                    })
+                    .drop_key()
             },
             // a new iteration is needed if at least one page's rank has changed
             |changed: &mut bool, (_x, old, new)| {

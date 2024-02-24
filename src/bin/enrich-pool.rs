@@ -1,4 +1,4 @@
-use std::{ops::Rem, sync::Arc, time::Instant};
+use std::{ops::Rem, time::Instant};
 
 use backoff::{retry_notify, ExponentialBackoff};
 use clap::Parser;
@@ -8,7 +8,6 @@ use noir_plus_extra::enrich::{postgres_blocking as db, types::Product};
 use r2d2_postgres::postgres::{self, NoTls};
 use rand::prelude::*;
 use rand_distr::Exp;
-use sqlx::{Connection, PgExecutor};
 
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
@@ -40,11 +39,6 @@ fn main() -> Result<()> {
     let opt = Options::try_parse_from(args)?;
     tracing::info!("config: {opt:?}");
 
-    let name = if let Some(n) = &opt.memo_n {
-        format!("memo{n}")
-    } else {
-        "nomemo".into()
-    };
     let lambda = 1. / opt.lambda_inv as f32;
 
     // db::db_setup()?;

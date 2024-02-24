@@ -3,8 +3,7 @@ use std::{ops::Rem, time::Instant};
 use clap::Parser;
 use eyre::{Context, Result};
 use noir_compute::{operator::Operator, prelude::*, Stream};
-use noir_plus_extra::enrich::{postgres as pg_async, postgres_blocking as db, types::Product};
-use r2d2_postgres::postgres;
+use noir_plus_extra::enrich::{postgres as pg_async, types::Product};
 use rand::prelude::*;
 use rand_distr::Exp;
 
@@ -29,21 +28,6 @@ struct Options {
     shared: bool,
 }
 
-fn make_source(
-    lambda: f32,
-    env: &mut StreamEnvironment,
-    events: u64,
-) -> eyre::Result<Stream<impl Operator<Out = i32>>> {
-    let distr = Exp::new(lambda)?;
-    let source = env
-        .stream_par_iter(move |i, n| {
-            let mut rng = SmallRng::seed_from_u64(i ^ 0xfeeddabeef);
-            (0..events / n).map(move |_| distr.sample(&mut rng).max(1.0).rem(1_000_000.) as i32)
-        })
-        .batch_mode(BatchMode::adaptive(8192, std::time::Duration::from_secs(1)));
-    Ok(source)
-}
-
 fn main() -> Result<()> {
     color_eyre::install().ok();
     dotenvy::dotenv().ok();
@@ -53,11 +37,6 @@ fn main() -> Result<()> {
     let opt = Options::try_parse_from(args)?;
     tracing::info!("config: {opt:?}");
 
-    let name = if let Some(n) = &opt.memo {
-        format!("memo{n}")
-    } else {
-        "nomemo".into()
-    };
     let lambda = 1. / opt.lambda_inv as f32;
 
     // db::db_setup()?;
