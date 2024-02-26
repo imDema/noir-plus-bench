@@ -23,9 +23,6 @@ struct Options {
     /// Size of the memoization caches, disable memoization if None
     #[clap(short('m'), long)]
     memo: Option<usize>,
-
-    #[clap(long, short)]
-    shared: bool,
 }
 
 fn main() -> Result<()> {

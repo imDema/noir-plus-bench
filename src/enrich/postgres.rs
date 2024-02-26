@@ -18,7 +18,7 @@ pub async fn db_init_pool() -> color_eyre::Result<PgPool> {
         .max_lifetime(None)
         .idle_timeout(None)
         .min_connections(4)
-        .max_connections(8)
+        .max_connections(16)
         .connect_lazy_with(url.parse::<PgConnectOptions>()?.disable_statement_logging());
 
     Ok(pool)
